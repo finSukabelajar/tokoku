@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TokoKu - Katalog dan algoritma</title>
+<style>
+  :root { --ink:#1d2433; --muted:#667085; --line:#e3e7ee; --bg:#f6f8fb; --accent:#0f766e; --accent-soft:#d9f2ee; --term:#182230; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; color:var(--ink); background:var(--bg); }
+  header { background:#fff; border-bottom:1px solid var(--line); padding:14px 24px; display:flex; justify-content:space-between; align-items:baseline; flex-wrap:wrap; gap:8px; }
+  header h1 { font-size:20px; margin:0; }
+  header span { color:var(--muted); font-size:14px; }
+  main { max-width:1100px; margin:0 auto; padding:20px 24px 40px; }
+  .bar { display:flex; flex-wrap:wrap; gap:16px; background:#fff; border:1px solid var(--line); border-radius:10px; padding:14px; margin-bottom:16px; }
+  .group { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+  .group + .group { padding-left:16px; border-left:1px solid var(--line); }
+  input, select, button { font:inherit; font-size:14px; padding:8px 10px; border:1px solid var(--line); border-radius:8px; background:#fff; color:var(--ink); }
+  input { width:200px; }
+  button { cursor:pointer; }
+  button.utama { background:var(--accent); border-color:var(--accent); color:#fff; }
+  button:hover { filter:brightness(0.96); }
+  :focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+  .grid { display:grid; grid-template-columns:minmax(0,1.4fr) minmax(0,1fr); gap:16px; }
+  @media (max-width:820px) { .grid { grid-template-columns:1fr; } .group + .group { padding-left:0; border-left:0; } }
+  .panel { background:#fff; border:1px solid var(--line); border-radius:10px; overflow:hidden; }
+  .panel h2 { font-size:14px; margin:0; padding:12px 14px; border-bottom:1px solid var(--line); color:var(--muted); font-weight:500; display:flex; justify-content:space-between; }
+  table { width:100%; border-collapse:collapse; font-size:14px; }
+  th { text-align:left; color:var(--muted); font-weight:500; padding:8px 14px; }
+  td { padding:9px 14px; border-top:1px solid var(--line); }
+  td.angka, th.angka { text-align:right; font-variant-numeric:tabular-nums; }
+  tr.sorot td { background:var(--accent-soft); font-weight:500; }
+  #log { background:var(--term); color:#c9d3e0; font-family: ui-monospace, Consolas, monospace; font-size:12.5px; line-height:1.7; padding:12px 14px; height:430px; overflow-y:auto; margin:0; }
+  #log div.TUKAR { color:#f4b860; } #log div.TETAP { color:#8b98ab; } #log div.KETEMU { color:#5eead4; }
+  #log div.SELESAI { color:#86efac; } #log div.INFO { color:#93c5fd; }
+  .kosong { color:#667085; padding:12px 14px; font-size:14px; }
+  .catatan { color:var(--muted); font-size:13px; padding:10px 14px; border-top:1px solid var(--line); }
+  details { margin-top:16px; background:#fff; border:1px solid var(--line); border-radius:10px; padding:12px 14px; font-size:14px; }
+  summary { cursor:pointer; font-weight:500; }
+  pre.kode { background:var(--bg); padding:10px; border-radius:8px; overflow-x:auto; font-size:13px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>TokoKu</h1>
+  <span>Katalog produk dengan sorting dan searching yang bisa ditelusuri langkah demi langkah</span>
+</header>
+<main>
+  <div class="bar">
+    <div class="group">
+      <input id="q" type="text" placeholder="Misalnya: mouse" aria-label="Kata kunci pencarian">
+            <select id="metodeCari" aria-label="Metode pencarian">
+        <option value="linear">Linear search</option>
+        <option value="binary">Binary search (nama lengkap)</option>
+      </select>
+      <button id="btnCari" class="utama">Cari produk</button>
+    </div>
+    <div class="group">
+      <select id="key" aria-label="Urutkan berdasarkan"><option value="harga">Harga</option><option value="nama">Nama</option><option value="rating">Rating</option></select>
+      <select id="order" aria-label="Arah urutan"><option value="asc">Naik</option><option value="desc">Turun</option></select>
+      <select id="metodeUrut" aria-label="Metode sorting"><option value="bubble">Bubble sort</option><option value="selection">Selection sort</option></select>      <button id="btnUrut" class="utama">Urutkan</button>
+      <button id="btnReset">Kembalikan urutan awal</button>
+    </div>
+  </div>
+
+  <div class="grid">
+    <section class="panel">
+      <h2><span>Katalog produk</span><span id="info"></span></h2>
+      <table>
+        <thead><tr><th>ID</th><th>Nama</th><th>Kategori</th><th class="angka">Harga</th><th class="angka">Stok</th><th class="angka">Rating</th></tr></thead>
+        <tbody id="isi"></tbody>
+      </table>
+      <div class="catatan">Data disimpan di server sebagai array of struct. Baris hijau adalah hasil pencarian.</div>
+    </section>
+    <section class="panel">
+      <h2><span>Log proses</span><button id="btnBersih" style="padding:3px 10px;font-size:12px">Bersihkan</button></h2>
+      <div id="log"><div class="INFO">Pilih Urutkan atau Cari produk, lalu proses akan tampil di sini.</div></div>
+    </section>
+  </div>
+
+  <details>
+    <summary>Penjelasan struct dan pointer yang dipakai</summary>
+    <pre class="kode">struct Produk { int id; string nama; string kategori; long harga; int stok; double rating; };
+Produk katalog[10];                         // array of struct
+void tukarProduk(Produk* a, Produk* b);     // pointer: menukar isi dua elemen array
+for (Produk* p = arr; p &lt; arr + n; p++)     // pointer: menelusuri array pada linear search</pre>
+  </details>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+const rupiah = n => 'Rp ' + n.toLocaleString('id-ID');
+let timer = null, sorot = [];
+
+function gambar(data) {
+  $('isi').innerHTML = data.map(p =>
+    `<tr class="${sorot.includes(p.id) ? 'sorot' : ''}"><td>P${String(p.id).padStart(2,'0')}</td><td>${p.nama}</td><td>${p.kategori}</td>` +
+    `<td class="angka">${rupiah(p.harga)}</td><td class="angka">${p.stok}</td><td class="angka">${p.rating.toFixed(1)}</td></tr>`).join('');
+}
+
+function putarLog(baris, sesudah) {
+  clearInterval(timer);
+  const el = $('log'); el.innerHTML = '';
+  let i = 0;
+  const jeda = Math.max(40, Math.min(220, 4000 / Math.max(baris.length, 1)));
+  timer = setInterval(() => {
+    if (i >= baris.length) { clearInterval(timer); if (sesudah) sesudah(); return; }
+    const m = baris[i++].match(/^\[(\w+)\]\s*(.*)$/);
+    const d = document.createElement('div');
+    d.className = m ? m[1] : ''; d.textContent = m ? `[${m[1]}] ${m[2]}` : baris[i-1];
+    el.appendChild(d); el.scrollTop = el.scrollHeight;
+  }, jeda);
+}
+
+async function panggil(url) {
+  const r = await fetch(url);
+  if (!r.ok) throw new Error('Server mengembalikan status ' + r.status);
+  return r.json();
+}
+
+async function jalankan(url, tampilkan) {
+  try {
+    const hasil = await panggil(url);
+    putarLog(hasil.log, () => tampilkan(hasil));
+  } catch (e) {
+    $('log').innerHTML = '<div class="TUKAR">Tidak bisa terhubung ke server. Pastikan program C++ sedang berjalan.</div>';
+  }
+}
+
+$('btnUrut').onclick = () => {
+  sorot = [];
+  jalankan(`/api/sort?key=${$('key').value}&order=${$('order').value}`, h => { gambar(h.data); $('info').textContent = 'Diurutkan'; });
+};
+
+$('btnCari').onclick = () => {
+  const q = $('q').value.trim();
+  if (!q) { $('log').innerHTML = '<div class="TUKAR">Masukkan kata kunci dulu.</div>'; return; }
+  jalankan(`/api/search?q=${encodeURIComponent(q)}`, h => {
+    sorot = h.ids; gambar(h.data);
+    $('info').textContent = h.ids.length ? `${h.ids.length} ditemukan` : 'Tidak ditemukan';
+  });
+};
+$('q').addEventListener('keydown', e => { if (e.key === 'Enter') $('btnCari').click(); });
+
+$('btnReset').onclick = async () => { clearInterval(timer); sorot = []; const h = await panggil('/api/reset'); gambar(h.data); $('info').textContent = ''; $('log').innerHTML = '<div class="INFO">Urutan dikembalikan ke data awal.</div>'; };
+$('btnBersih').onclick = () => { clearInterval(timer); $('log').innerHTML = ''; };
+
+panggil('/api/produk').then(h => gambar(h.data)).catch(() => { $('isi').innerHTML = '<tr><td colspan="6" class="kosong">Server belum berjalan. Jalankan program C++ lalu muat ulang halaman.</td></tr>'; });
+</script>
+</body>
+</html>
